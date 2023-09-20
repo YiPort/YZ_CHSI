@@ -14,6 +14,8 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.text.SimpleDateFormat;
 import java.util.*;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 public class YZ_CHSI {
     static List<Integer> colIndex = Arrays.asList(0,4,5,6,8,9);
@@ -55,7 +57,7 @@ public class YZ_CHSI {
         String xxfs = scanner.next();
         System.out.println("请输入文件保存路径（注意路径文件夹不能有空格）:");
         String location=scanner.next();
-        System.out.println("小叶提示你：爬取完成的标志是输出路径的文档变大");
+
 
         cities = Jsoup.connect("https://yz.chsi.com.cn/zsml/pages/getSs.jsp").execute().body();
         List<MyThread> threadList = new ArrayList<>();
@@ -64,14 +66,16 @@ public class YZ_CHSI {
             String mcs = profession.get("mc");
             threadList.add(new MyThread(dms, mcs,xxfs,location));
         }
-        for (MyThread threado : threadList) {
-            System.out.println("小叶提示你：正在爬取研招网-"+threado.getName());
-            threado.start();
-            threado.join();
-            System.out.println("小叶提示你：爬取研招网完成-"+threado.getName());
-            Thread.sleep(500);
-
+        ExecutorService executor = Executors.newFixedThreadPool(threadList.size());
+        for (MyThread thread : threadList) {
+            executor.execute(() -> {
+                System.out.println("小叶：开始爬取研招网-" + thread.mc+thread.xxfsName+ thread.getName());
+                thread.run();
+                System.out.println("小叶：爬取研招网完成-" + thread.dm+thread.xxfsName+ thread.getName());
+            });
         }
+
+        executor.shutdown();
     }
 
     static class MyThread extends Thread {
@@ -79,20 +83,21 @@ public class YZ_CHSI {
         String mc;
         String xxfs;
         FileWriter fo;
+        String xxfsName;
 
         MyThread(String dm, String mc,String xxfs,String location) throws IOException {
             this.dm = dm;
             this.mc = mc;
             this.xxfs=xxfs;
             //学习方式名称
-            String xxfsName="";
+            this.xxfsName="";
 
 
            if(xxfs.equals("2")){
-                xxfsName="非全日制";
+                this.xxfsName="非全日制";
             }else{
                 this.xxfs="1";
-                xxfsName="全日制";
+                this.xxfsName="全日制";
             }
             System.out.println("------------"+xxfsName);
             String fileName=location+"\\"+ new SimpleDateFormat("yyyy年MM月-").format(new Date()) + mc + xxfsName+"招生学校和专业清单.md";
@@ -123,7 +128,7 @@ public class YZ_CHSI {
 
         void getSchool(String ssdm, String dm,String xxfs) {
             try {
-                // ssdm 省市代码 yjxkdm 学科代码  zymc 专业名称,xxfs 学习方式(0学硕1专硕2专硕)
+                // ssdm 省市代码 yjxkdm 学科代码  zymc 专业名称,xxfs 学习方式(1全日制2非全日制)
                 Connection conn = Jsoup.connect("https://yz.chsi.com.cn/zsml/queryAction.do")
                         .data("ssdm", ssdm)
                         .data("yjxkdm", dm)
